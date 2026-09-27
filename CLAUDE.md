@@ -28,7 +28,7 @@ Run: `make init` (once), `make up` (runs preflight first), `make down`, `make lo
 
 ## Security invariants
 
-- Every published port binds `127.0.0.1`. Nothing in front of the receivers, Phoenix or OpenObserve adds auth (see `SECURITY.md`).
+- Every published port binds `127.0.0.1`. The OTLP receivers and Phoenix have no auth, and OpenObserve only its root login over plain HTTP; loopback binding is what keeps them private (see `SECURITY.md`).
 - Images pinned by digest (collector by exact tag). CI actions pinned to full commit SHAs with a `# vX.Y.Z` comment; runners pinned (no `*-latest`). `tests/offline/test_env_and_compose.py` and `test_ci.py` check this.
 - Content capture is per launch only, via `launchers/claude-traced.{sh,ps1}`. User settings must not set the `OTEL_LOG_*` content flags (`tests/settings/keys.py`).
 - Secrets live only in `.env` (mode 600) and the collector's environment, never in Claude Code settings.
