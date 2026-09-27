@@ -1,0 +1,101 @@
+name: ${COMPOSE_PROJECT_NAME:-claude-code-otel-local}
+
+x-logging: &logging
+  driver: local
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.140.0
+    restart: unless-stopped
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+    command:
+      - --config=/etc/otelcol/base.yaml
+      - --config=/etc/otelcol/${COLLECTOR_OVERLAY_1:-none}.yaml
+      - --config=/etc/otelcol/${COLLECTOR_OVERLAY_2:-none}.yaml
+    environment:
+      ENV_A_NAME: ${ENV_A_NAME:-local}
+      ENV_B_NAME: ${ENV_B_NAME:-windows}
+      OPENOBSERVE_BASIC_AUTH: ${OPENOBSERVE_BASIC_AUTH:-}
+    volumes:
+      - ./collector:/etc/otelcol:ro
+      - ${DATA_DIR:-./data}/out:/data/out
+    ports:
+      - "127.0.0.1:${ENV_A_PORT:-4318}:4318"
+      - "127.0.0.1:${ENV_B_PORT:-4320}:4320"
+    depends_on:
+      phoenix:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+    logging: *logging
+
+  phoenix-db:
+    image: postgres:16.15-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: phoenix
+      POSTGRES_PASSWORD: ${PHOENIX_DB_PASSWORD:?run scripts/init-env.sh first}
+      POSTGRES_DB: phoenix
+    volumes:
+      - phoenix-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U phoenix -d phoenix"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+    logging: *logging
+
+  phoenix:
+    image: arizephoenix/phoenix@sha256:e61b2ec06fa1f2f96fb9ffbdf55a7484290931188f82b05393def69b85eeaba2
+    restart: unless-stopped
+    depends_on:
+      phoenix-db:
+        condition: service_healthy
+    environment:
+      PHOENIX_SQL_DATABASE_URL: postgresql://phoenix:${PHOENIX_DB_PASSWORD:?run scripts/init-env.sh first}@phoenix-db:5432/phoenix
+      PHOENIX_DEFAULT_RETENTION_POLICY_DAYS: ${PHOENIX_RETENTION_DAYS:-14}
+      PHOENIX_TELEMETRY_ENABLED: "false"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:6006/healthz')"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    ports:
+      - "127.0.0.1:${PHOENIX_PORT:-6006}:6006"
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+    logging: *logging
+
+  openobserve:
+    profiles: [openobserve]
+    image: public.ecr.aws/zinclabs/openobserve@sha256:e1ff0445fab3e748ac4cf630308cc8493579e50d19ad255bb3a3b8c1b710aaf7
+    restart: unless-stopped
+    environment:
+      ZO_ROOT_USER_EMAIL: ${OPENOBSERVE_ROOT_EMAIL:-admin@example.com}
+      ZO_ROOT_USER_PASSWORD: ${OPENOBSERVE_ROOT_PASSWORD:-}
+      ZO_DATA_DIR: /data
+      ZO_COMPACT_DATA_RETENTION_DAYS: ${OPENOBSERVE_RETENTION_DAYS:-30}
+    volumes:
+      - openobserve-data:/data
+    ports:
+      - "127.0.0.1:${OPENOBSERVE_PORT:-5080}:5080"
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+    logging: *logging
+
+volumes:
+  phoenix-db-data:
+  openobserve-data:

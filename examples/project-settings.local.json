@@ -1,0 +1,11 @@
+{
+  "deniedMcpServers": [
+    {"serverName": "claude.ai Gmail"},
+    {"serverName": "claude.ai Canva"}
+  ],
+  "env": {
+    "OTEL_TRACES_EXPORTER": "none",
+    "OTEL_METRICS_EXPORTER": "none",
+    "OTEL_LOGS_EXPORTER": "none"
+  }
+}

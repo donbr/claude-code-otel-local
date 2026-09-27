@@ -1,0 +1,34 @@
+# Second environment (e.g. native Windows next to WSL): receiver B on 4320, tagged ENV_B_NAME.
+# Adds new keys only; the fan-out pipelines in base.yaml are untouched.
+receivers:
+  otlp/b:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4320
+
+processors:
+  resource/b:
+    attributes:
+      - key: deployment.environment.name
+        value: ${env:ENV_B_NAME}
+        action: upsert
+  attributes/b:
+    actions:
+      - key: deployment.environment.name
+        value: ${env:ENV_B_NAME}
+        action: upsert
+
+service:
+  pipelines:
+    traces/b:
+      receivers: [otlp/b]
+      processors: [resource/b, attributes/b]
+      exporters: [forward/traces]
+    metrics/b:
+      receivers: [otlp/b]
+      processors: [resource/b]
+      exporters: [forward/metrics]
+    logs/b:
+      receivers: [otlp/b]
+      processors: [resource/b]
+      exporters: [forward/logs]

@@ -1,0 +1,16 @@
+# Metrics and log events to OpenObserve (Compose profile "openobserve"). Replaces only the
+# metrics/logs fan-out exporter lists, so it composes with any number of environments.
+exporters:
+  otlphttp/openobserve:
+    endpoint: http://openobserve:5080/api/default
+    headers:
+      Authorization: Basic ${env:OPENOBSERVE_BASIC_AUTH}
+    tls:
+      insecure: true
+
+service:
+  pipelines:
+    metrics/out:
+      exporters: [file/metrics, otlphttp/openobserve]
+    logs/out:
+      exporters: [file/logs, otlphttp/openobserve]

@@ -1,0 +1,65 @@
+# Single-environment default. Receiver A tags everything with ENV_A_NAME, then hands off to forward
+# connectors; the fan-out pipelines own the sinks so overlays never need to edit env pipelines.
+receivers:
+  otlp/a:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch: {}
+  resource/a:
+    attributes:
+      - key: deployment.environment.name
+        value: ${env:ENV_A_NAME}
+        action: upsert
+  # Phoenix discards resource attributes, so traces also carry the tag on every span.
+  attributes/a:
+    actions:
+      - key: deployment.environment.name
+        value: ${env:ENV_A_NAME}
+        action: upsert
+
+connectors:
+  forward/traces: {}
+  forward/metrics: {}
+  forward/logs: {}
+
+exporters:
+  file/traces:
+    path: /data/out/traces.jsonl
+  file/metrics:
+    path: /data/out/metrics.jsonl
+  file/logs:
+    path: /data/out/logs.jsonl
+  otlphttp/phoenix:
+    endpoint: http://phoenix:6006
+    tls:
+      insecure: true
+
+service:
+  pipelines:
+    traces/a:
+      receivers: [otlp/a]
+      processors: [resource/a, attributes/a]
+      exporters: [forward/traces]
+    metrics/a:
+      receivers: [otlp/a]
+      processors: [resource/a]
+      exporters: [forward/metrics]
+    logs/a:
+      receivers: [otlp/a]
+      processors: [resource/a]
+      exporters: [forward/logs]
+    traces/out:
+      receivers: [forward/traces]
+      processors: [batch]
+      exporters: [file/traces, otlphttp/phoenix]
+    metrics/out:
+      receivers: [forward/metrics]
+      processors: [batch]
+      exporters: [file/metrics]
+    logs/out:
+      receivers: [forward/logs]
+      processors: [batch]
+      exporters: [file/logs]

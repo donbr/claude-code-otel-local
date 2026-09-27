@@ -1,0 +1,19 @@
+[project]
+name = "claude-code-otel-local"
+version = "0.1.0"
+description = "Local, native-only observability for Claude Code's OpenTelemetry export"
+requires-python = ">=3.11"
+license = "MIT"
+dependencies = []
+
+[dependency-groups]
+dev = [
+  "pytest>=8",
+  "pyyaml>=6",
+  "opentelemetry-sdk>=1.30",
+  "opentelemetry-exporter-otlp-proto-http>=1.30",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["docker: needs Docker (tier 3)", "claude: needs Claude Code CLI (tier 4)"]
