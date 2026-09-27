@@ -1,6 +1,16 @@
 # CLAUDE.md
 
-Local, native-only OpenTelemetry stack for Claude Code: collector → JSONL + Phoenix (+ optional OpenObserve). Design: `docs/design/2026-09-27-claude-code-otel-local-design.md`; plan and its "As built" deviations: `docs/design/2026-09-27-claude-code-otel-local-v1.md`.
+Local observability stack for Claude Code's **built-in** OpenTelemetry export: collector → JSONL + Phoenix (+ optional OpenObserve). Native-only by design: no vendor hook plugins (Langfuse, Arize, …) and no credentials or exporter tokens in Claude Code settings; don't propose either. `README.md` has the modes table and what each content flag captures. Design: `docs/design/2026-09-27-claude-code-otel-local-design.md`; plan and its "As built" deviations: `docs/design/2026-09-27-claude-code-otel-local-v1.md`.
+
+## Layout
+
+- `compose.yaml`: collector, Phoenix + Postgres, OpenObserve (profile `openobserve`).
+- `collector/`: `base.yaml` plus overlays `none`, `dual-env` (second receiver/tag), `openobserve`.
+- `scripts/`: `init-env.sh` writes `.env` with generated secrets; `preflight.py` checks `.env`, ports and the data dir before `make up`.
+- `launchers/`: per-launch content capture (`claude-traced.sh`, `.ps1`). `examples/`: the user-settings baseline and a project-settings example.
+- `docs/concepts.md`: settings precedence, content flags, signal routing. `docs/findings.md`: version-pinned observed behavior.
+
+Run: `make init` (once), `make up` (runs preflight first), `make down`, `make logs`.
 
 ## This repo is public
 
@@ -13,6 +23,7 @@ Local, native-only OpenTelemetry stack for Claude Code: collector → JSONL + Ph
 - Compose passes `base.yaml` plus two overlay slots as repeated `--config` files. The merge combines maps but **replaces lists**.
 - So environment pipelines (`traces/a`, `traces/b`, …) end in `forward/*` connectors, and overlays may only add new keys or replace the fan-out exporter lists (`metrics/out`, `logs/out`). Never make an overlay edit an environment pipeline.
 - The environment tag goes on the resource **and** every span: Phoenix drops resource attributes.
+- The `openobserve` overlay and the `openobserve` Compose profile go together: setting one without the other is a preflight error.
 - After any change under `collector/`: `uv run pytest tests/offline/test_collector_graph.py tests/smoke/test_validate.py`.
 
 ## Security invariants
