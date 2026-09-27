@@ -16,3 +16,9 @@ def test_actions_are_pinned_to_full_commit_shas():
     for ref, comment in uses:
         assert re.fullmatch(r"[\w.-]+/[\w.-]+@[0-9a-f]{40}", ref), ref
         assert re.search(r"#\s*v\d", comment), f"{ref}: add the version as a comment"
+
+
+def test_runner_image_is_pinned():
+    jobs = yaml.safe_load(WORKFLOW.read_text())["jobs"]
+    for name, job in jobs.items():
+        assert not job["runs-on"].endswith("-latest"), f"{name}: pin the runner image (e.g. ubuntu-24.04)"

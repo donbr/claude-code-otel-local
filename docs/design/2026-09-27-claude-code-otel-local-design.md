@@ -140,7 +140,7 @@ Each is written up in `docs/findings.md`, pinned to Claude Code 2.1.283, and re-
 - No secrets in any output: settings tests print key names only.
 - Tier 3 needs no Claude account.
 - Entry points: `make verify` (tiers 1 + 3), `make verify-settings` (2), `make verify-claude` (4).
-- **CI:** GitHub Actions on `ubuntu-latest` runs tiers 1 and 3, and is available because the repo is public.
+- **CI:** GitHub Actions on `ubuntu-24.04` (pinned, not `ubuntu-latest`) runs tiers 1 and 3, and is available because the repo is public.
 
 ## 6. Docs
 
