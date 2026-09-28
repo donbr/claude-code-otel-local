@@ -23,4 +23,13 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7  # v10.2.0
       - run: uv sync
+      # Pull once, with backoff: public registries rate-limit shared runner IPs ("toomanyrequests").
+      - name: Pull images
+        run: |
+          for i in 1 2 3 4; do
+            COMPOSE_PROFILES=openobserve PHOENIX_DB_PASSWORD=unused docker compose pull && exit 0
+            echo "pull failed (attempt $i); retrying in $((i * 30))s"
+            sleep $((i * 30))
+          done
+          exit 1
       - run: uv run pytest tests/smoke -v -m docker
