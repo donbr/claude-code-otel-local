@@ -76,6 +76,7 @@ On Windows: `pwsh -File .\launchers\claude-traced.ps1 [-Detailed] [claude args]`
 - [docs/findings.md](docs/findings.md): observed Claude Code behaviour, with the version and the test that re-checks it.
 - [docs/dual-environment.md](docs/dual-environment.md): WSL and Windows on one Docker engine.
 - [docs/pipelines.md](docs/pipelines.md): guidance for `claude -p` workers.
+- [docs/phoenix.md](docs/phoenix.md): what Phoenix shows for each span, the collector's OpenInference mapping, and querying by REST, GraphQL or MCP.
 - [SECURITY.md](SECURITY.md), [CHANGELOG.md](CHANGELOG.md).
 
 ## Design

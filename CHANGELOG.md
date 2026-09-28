@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.0 - unreleased
+
+- **Phoenix shows prompts and replies.** The collector maps Claude Code's attributes to OpenInference on a Phoenix-only branch: the prompt fills the interaction span's Input, the headless detailed-tracing reply fills the `llm_request` span's Output, tool spans show their input and output (full JSON with detailed tracing, otherwise the command or file path and the `tool.output` event), spans get AGENT/LLM/TOOL kinds, and token counts include cache reads and writes. `<REDACTED>` text is never copied, existing values are never overwritten, and `data/out/traces.jsonl` stays exactly as received.
+- New `docs/phoenix.md`: what each span carries, what Phoenix shows in each capture mode, log-event join keys, projects, and REST/GraphQL/MCP queries.
+- `docs/pipelines.md`: workers should drop an inherited `TRACEPARENT`.
+
 ## 0.1.0 - unreleased
 
 Initial stack.
