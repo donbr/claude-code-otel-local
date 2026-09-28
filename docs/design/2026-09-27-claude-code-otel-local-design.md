@@ -25,7 +25,7 @@ A small, local, **native-only** observability stack for Claude Code's built-in O
 - Four test tiers, and docs.
 
 **Out of scope (v1):**
-- A `gen_ai.*` semantic-convention mapping (wait for semconv-genai PR #498 to merge).
+- A `gen_ai.*` semantic-convention mapping (wait for semconv-genai PR #498 to merge). The narrower OpenInference mapping for Phoenix's display is in scope from 0.2.0 (§3.2).
 - The Arize `claude-code-otlp-collector` bridge (it needs raw API body files on disk).
 - Langfuse and hook plugins.
 - CI that invokes `claude -p` (needs a subscription).
@@ -94,7 +94,7 @@ The collector merges repeated `--config` files; **lists are replaced, not append
 
 | File | Defines | Edits existing lists |
 |---|---|---|
-| `collector/base.yaml` | `otlp/a` receiver (`0.0.0.0:4318`), `resource/a` + `attributes/a` tag processors, `forward/traces\|metrics\|logs`, `file/*` + `otlphttp/phoenix` exporters, `batch`; pipelines `traces/a`, `metrics/a`, `logs/a` → forward, plus fan-out pipelines `traces/out` → [file, phoenix], `metrics/out` → [file], `logs/out` → [file] | — |
+| `collector/base.yaml` | `otlp/a` receiver (`0.0.0.0:4318`), `resource/a` + `attributes/a` tag processors, `forward/traces\|metrics\|logs`, `file/*` + `otlphttp/phoenix` exporters, `batch`, `transform/openinference` (0.2.0); pipelines `traces/a`, `metrics/a`, `logs/a` → forward, plus fan-out pipelines `traces/out` → [file, `forward/phoenix`], `traces/phoenix` → [transform/openinference] → phoenix, `metrics/out` → [file], `logs/out` → [file] | — |
 | `collector/dual-env.yaml` | `otlp/b` receiver (`0.0.0.0:4320`), `resource/b` + `attributes/b`; pipelines `traces/b`, `metrics/b`, `logs/b` → forward | none |
 | `collector/openobserve.yaml` | `otlphttp/openobserve` exporter (header from `${env:OPENOBSERVE_BASIC_AUTH}`); redefines `metrics/out` and `logs/out` exporters as [file, openobserve] | fan-out lists only |
 | `collector/none.yaml` | `{}` | — |

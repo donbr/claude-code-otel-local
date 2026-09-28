@@ -71,6 +71,7 @@ The steps below are the plan as written. The build differs in these deliberate w
 - **Scrub.** It also catches forward-slash and WSL-mounted Windows paths, macOS user paths, and the names of private projects.
 - **Versions.** The collector image `0.140.0` reports binary version 0.140.1; the CHANGELOG says both.
 - **Task 10** is generic migration guidance, not one user's cutover.
+- **0.2.0: Phoenix display mapping.** Phoenix fills Input/Output only from OpenInference `input.value`/`output.value`, which Claude Code doesn't emit. `collector/base.yaml` adds a `traces/phoenix` branch with `transform/openinference` (prompt → Input, detailed-tracing reply → Output, tool input/output, span kinds, token counts including cache); `traces.jsonl` stays raw. Checked by `tests/smoke/test_phoenix_mapping.py`; documented in `docs/phoenix.md`.
 
 ---
 

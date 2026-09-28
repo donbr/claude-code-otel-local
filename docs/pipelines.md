@@ -13,6 +13,8 @@ User settings win over the process env for any key they set ([findings §1](find
 | `OTEL_RESOURCE_ATTRIBUTES` | Per-call attributes such as workflow and run ids, or `openinference.project.name` to choose the Phoenix project |
 | `TRACEPARENT` (and `TRACESTATE`) | Parent the CLI's spans under the caller's span. `-p` and the Agent SDK read it; interactive sessions ignore it |
 
+Drop an inherited `TRACEPARENT`/`TRACESTATE` before setting your own. Claude Code puts its own `TRACEPARENT` in the environment of the commands it runs, so a worker started from inside a Claude Code session would otherwise attach every call to that session's trace, and Phoenix would file them under that trace's project ([phoenix](phoenix.md#projects)).
+
 Don't put `OTEL_RESOURCE_ATTRIBUTES` in user settings: it would silently override every worker's per-call value. The collector adds the environment tag instead.
 
 ## Keep the context small

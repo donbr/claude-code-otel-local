@@ -19,9 +19,48 @@ processors:
       - key: deployment.environment.name
         value: ${env:ENV_A_NAME}
         action: upsert
+  # Copy Claude Code's own attribute names into the OpenInference ones Phoenix renders (Input/Output
+  # panes, span kind, tokens). Runs only on the Phoenix branch, so traces.jsonl stays as received.
+  # Never overwrites a value that is already set; <REDACTED> text is not copied. See docs/phoenix.md.
+  transform/openinference:
+    error_mode: ignore
+    trace_statements:
+      - context: span
+        statements:
+          - set(attributes["openinference.span.kind"], "AGENT") where name == "claude_code.interaction" and attributes["openinference.span.kind"] == nil
+          - set(attributes["openinference.span.kind"], "LLM") where name == "claude_code.llm_request" and attributes["openinference.span.kind"] == nil
+          - set(attributes["openinference.span.kind"], "TOOL") where name == "claude_code.tool" and attributes["openinference.span.kind"] == nil
+          - set(attributes["input.value"], attributes["user_prompt"]) where name == "claude_code.interaction" and attributes["input.value"] == nil and attributes["user_prompt"] != nil and attributes["user_prompt"] != "<REDACTED>"
+          - set(attributes["input.mime_type"], "text/plain") where name == "claude_code.interaction" and attributes["input.value"] != nil and attributes["input.mime_type"] == nil
+          - set(attributes["output.value"], attributes["response.model_output"]) where name == "claude_code.llm_request" and attributes["output.value"] == nil and attributes["response.model_output"] != nil and attributes["response.model_output"] != "<REDACTED>"
+          - set(attributes["output.mime_type"], "text/plain") where name == "claude_code.llm_request" and attributes["output.value"] != nil and attributes["output.mime_type"] == nil
+          # OpenInference prompt tokens include cache reads and writes; Anthropic's input_tokens does not.
+          - set(attributes["llm.token_count.prompt"], attributes["input_tokens"] + attributes["cache_read_tokens"] + attributes["cache_creation_tokens"]) where name == "claude_code.llm_request" and attributes["llm.token_count.prompt"] == nil and attributes["input_tokens"] != nil and attributes["cache_read_tokens"] != nil and attributes["cache_creation_tokens"] != nil
+          - set(attributes["llm.token_count.prompt_details.cache_read"], attributes["cache_read_tokens"]) where name == "claude_code.llm_request" and attributes["llm.token_count.prompt_details.cache_read"] == nil and attributes["cache_read_tokens"] != nil
+          - set(attributes["llm.token_count.prompt_details.cache_write"], attributes["cache_creation_tokens"]) where name == "claude_code.llm_request" and attributes["llm.token_count.prompt_details.cache_write"] == nil and attributes["cache_creation_tokens"] != nil
+          - set(attributes["llm.token_count.completion"], attributes["output_tokens"]) where name == "claude_code.llm_request" and attributes["llm.token_count.completion"] == nil and attributes["output_tokens"] != nil
+          - set(attributes["llm.token_count.total"], attributes["llm.token_count.prompt"] + attributes["llm.token_count.completion"]) where name == "claude_code.llm_request" and attributes["llm.token_count.total"] == nil and attributes["llm.token_count.prompt"] != nil and attributes["llm.token_count.completion"] != nil
+          - set(attributes["tool.name"], attributes["tool_name"]) where name == "claude_code.tool" and attributes["tool.name"] == nil and attributes["tool_name"] != nil
+          # Tool input/output. Detailed tracing puts the full JSON on the span behind a "[TOOL INPUT: X]" /
+          # "[TOOL RESULT: X]" line; without it, OTEL_LOG_TOOL_DETAILS gives only specific parameters.
+          - 'set(attributes["input.value"], attributes["tool_input"]) where name == "claude_code.tool" and attributes["input.value"] == nil and attributes["tool_input"] != nil and attributes["tool_input"] != "<REDACTED>"'
+          # Mime type and prefix stripping only touch a value this processor copied (input.value == tool_input).
+          - 'set(attributes["input.mime_type"], "application/json") where name == "claude_code.tool" and attributes["input.mime_type"] == nil and attributes["tool_input"] != nil and attributes["input.value"] == attributes["tool_input"] and IsMatch(attributes["tool_input"], "^\\[TOOL INPUT: ")'
+          - 'replace_pattern(attributes["input.value"], "^\\[TOOL INPUT: [^\\]]*\\]\\n", "") where name == "claude_code.tool" and attributes["tool_input"] != nil and attributes["input.value"] == attributes["tool_input"]'
+          - set(attributes["input.value"], attributes["full_command"]) where name == "claude_code.tool" and attributes["input.value"] == nil and attributes["full_command"] != nil
+          - set(attributes["input.value"], attributes["file_path"]) where name == "claude_code.tool" and attributes["input.value"] == nil and attributes["file_path"] != nil
+          - 'set(attributes["output.value"], attributes["new_context"]) where name == "claude_code.tool" and attributes["output.value"] == nil and attributes["new_context"] != nil and attributes["new_context"] != "<REDACTED>"'
+          - 'set(attributes["output.mime_type"], "application/json") where name == "claude_code.tool" and attributes["output.mime_type"] == nil and attributes["new_context"] != nil and attributes["output.value"] == attributes["new_context"] and IsMatch(attributes["new_context"], "^\\[TOOL RESULT: ")'
+          - 'replace_pattern(attributes["output.value"], "^\\[TOOL RESULT: [^\\]]*\\]\\n", "") where name == "claude_code.tool" and attributes["new_context"] != nil and attributes["output.value"] == attributes["new_context"]'
+      # Without detailed tracing, OTEL_LOG_TOOL_CONTENT puts the result on a tool.output span event.
+      - context: spanevent
+        statements:
+          - set(span.attributes["output.value"], attributes["output"]) where name == "tool.output" and span.name == "claude_code.tool" and span.attributes["output.value"] == nil and attributes["output"] != nil
+          - set(span.attributes["output.value"], attributes["content"]) where name == "tool.output" and span.name == "claude_code.tool" and span.attributes["output.value"] == nil and attributes["content"] != nil
 
 connectors:
   forward/traces: {}
+  forward/phoenix: {}
   forward/metrics: {}
   forward/logs: {}
 
@@ -54,7 +93,12 @@ service:
     traces/out:
       receivers: [forward/traces]
       processors: [batch]
-      exporters: [file/traces, otlphttp/phoenix]
+      exporters: [file/traces, forward/phoenix]
+    # Phoenix branch: only this copy gets the OpenInference mapping.
+    traces/phoenix:
+      receivers: [forward/phoenix]
+      processors: [transform/openinference]
+      exporters: [otlphttp/phoenix]
     metrics/out:
       receivers: [forward/metrics]
       processors: [batch]
