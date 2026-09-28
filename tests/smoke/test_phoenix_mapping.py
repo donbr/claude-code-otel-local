@@ -80,3 +80,19 @@ def test_tool_input_and_output_reach_phoenix(tmp_path, mode, expected_in, expect
         assert attrs["input.value"] == expected_in.format(m=marker)  # "[TOOL INPUT: …]" line stripped
         assert attrs["output.value"] == expected_out.format(m=marker)
         assert attrs.get("input.mime_type") == mime
+
+
+def test_values_already_set_upstream_are_never_overwritten(tmp_path):
+    preset = {"input.value": "upstream-in", "output.value": "upstream-out",
+              "llm.token_count.prompt_details.cache_read": 7, "llm.token_count.prompt_details.cache_write": 8}
+    with Stack("none", "none", tmp_path) as stack:
+        marker = f"oi-preset-{int(time.time())}"
+        send_claude_like(stack.ports["ENV_A_PORT"], marker, prompt="p", reply="r", tool_mode="detailed", preset=preset)
+        spans = wait_for(lambda: (s := phoenix_spans(stack, marker)) and len(s) == 3 and s)
+        assert spans, "spans never reached Phoenix"
+        tool = spans["claude_code.tool"]["attributes"]
+        assert (tool["input.value"], tool["output.value"]) == ("upstream-in", "upstream-out")
+        assert "input.mime_type" not in tool and "output.mime_type" not in tool
+        llm = spans["claude_code.llm_request"]["attributes"]
+        assert llm["output.value"] == "upstream-out"
+        assert (llm["llm.token_count.prompt_details.cache_read"], llm["llm.token_count.prompt_details.cache_write"]) == (7, 8)

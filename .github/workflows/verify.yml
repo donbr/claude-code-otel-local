@@ -28,6 +28,7 @@ jobs:
         run: |
           for i in 1 2 3 4; do
             COMPOSE_PROFILES=openobserve PHOENIX_DB_PASSWORD=unused docker compose pull && exit 0
+            [ "$i" -lt 4 ] || break
             echo "pull failed (attempt $i); retrying in $((i * 30))s"
             sleep $((i * 30))
           done
